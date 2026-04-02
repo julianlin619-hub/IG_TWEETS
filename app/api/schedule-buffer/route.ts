@@ -19,6 +19,7 @@ export async function POST(req: NextRequest) {
     const scheduled: { videoFileName?: string; postId: string }[] = [];
     for (const file of files) {
       const videoUrl = file.videoUrl ?? (appUrl ? `${appUrl}/api/download/${file.videoFileName}` : null);
+      console.log('[Buffer] Video URL being sent:', videoUrl);
       if (!videoUrl) throw new Error('Either videoUrl must be provided or APP_URL env var must be set');
       const post = await scheduleVideoToInstagram(channelId, file.tweetText, videoUrl);
       scheduled.push({ videoFileName: file.videoFileName, postId: post.id });

@@ -51,15 +51,15 @@ export async function getInstagramChannelId(): Promise<string> {
 
 export async function introspectSchema(): Promise<unknown> {
   const igMeta = await bufferRequest(`{
-    __type(name: "InstagramPostMetadataInput") {
+    igInput: __type(name: "InstagramPostMetadataInput") {
       name
       inputFields {
         name
-        type { name kind ofType { name kind ofType { name kind } } }
+        type { name kind enumValues { name } ofType { name kind enumValues { name } ofType { name kind enumValues { name } } } }
       }
     }
   }`);
-  return { igMeta };
+  return igMeta;
 }
 
 export async function scheduleVideoToInstagram(
@@ -67,6 +67,22 @@ export async function scheduleVideoToInstagram(
   tweetText: string,
   videoUrl: string
 ): Promise<{ id: string }> {
+  const inputPayload = {
+    channelId,
+    schedulingType: 'automatic',
+    mode: 'addToQueue',
+    text: truncateCaption(tweetText),
+    metadata: {
+      instagram: {
+        type: 'reel',
+      },
+    },
+    assets: {
+      videos: [{ url: videoUrl }],
+    },
+  };
+  console.log('[Buffer] createPost input:', JSON.stringify(inputPayload, null, 2));
+
   const data = await bufferRequest<{
     createPost: { post?: { id: string }; message?: string };
   }>(
@@ -83,22 +99,7 @@ export async function scheduleVideoToInstagram(
         ... on InvalidInputError { message }
       }
     }`,
-    {
-      input: {
-        channelId,
-        schedulingType: 'automatic',
-        mode: 'addToQueue',
-        text: truncateCaption(tweetText),
-        metadata: {
-          instagram: {
-            type: 'reel',
-          },
-        },
-        assets: {
-          videos: [{ url: videoUrl }],
-        },
-      },
-    }
+    { input: inputPayload }
   );
 
   const result = data.createPost;

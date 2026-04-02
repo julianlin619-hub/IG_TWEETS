@@ -73,6 +73,7 @@ export async function scheduleVideoToInstagram(
         schedulingType: 'automatic',
         mode: 'addToQueue',
         text: truncateCaption(tweetText),
+        instagramPostType: 'reel',
         assets: {
           videos: [{ url: videoUrl }],
         },

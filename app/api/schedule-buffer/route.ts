@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getInstagramChannelId, scheduleVideoToInstagram, introspectCreatePostInput } from '@/lib/buffer';
+import { getInstagramChannelId, scheduleVideoToInstagram, introspectSchema } from '@/lib/buffer';
 
 export async function POST(req: NextRequest) {
   try {
@@ -7,7 +7,7 @@ export async function POST(req: NextRequest) {
 
     // Introspection mode: discover CreatePostInput schema
     if (body.introspect) {
-      const schema = await introspectCreatePostInput();
+      const schema = await introspectSchema();
       return NextResponse.json({ schema });
     }
 

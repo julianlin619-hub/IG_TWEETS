@@ -15,8 +15,11 @@ async function bufferRequest<T>(query: string, variables?: Record<string, unknow
     body: JSON.stringify({ query, variables }),
   });
 
-  if (!res.ok) throw new Error(`Buffer API error: ${res.status} ${res.statusText}`);
   const json = await res.json();
+  if (!res.ok) {
+    const detail = JSON.stringify(json);
+    throw new Error(`Buffer API error: ${res.status} ${res.statusText} — ${detail}`);
+  }
   if (json.errors?.length) throw new Error(json.errors[0].message);
   return json.data as T;
 }

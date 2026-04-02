@@ -1,0 +1,87 @@
+const BUFFER_GRAPHQL_URL = 'https://api.buffer.com/graphql';
+const ORGANIZATION_ID = '67dafe21c453882020852a9a';
+const TIKTOK_CAPTION_LIMIT = 150;
+
+async function bufferRequest<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
+  const apiKey = process.env.BUFFER_API;
+  if (!apiKey) throw new Error('BUFFER_API env var not set');
+
+  const res = await fetch(BUFFER_GRAPHQL_URL, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${apiKey}`,
+    },
+    body: JSON.stringify({ query, variables }),
+  });
+
+  if (!res.ok) throw new Error(`Buffer API error: ${res.status} ${res.statusText}`);
+  const json = await res.json();
+  if (json.errors?.length) throw new Error(json.errors[0].message);
+  return json.data as T;
+}
+
+function truncateCaption(text: string): string {
+  if (text.length <= TIKTOK_CAPTION_LIMIT) return text;
+  return text.slice(0, TIKTOK_CAPTION_LIMIT - 1).trimEnd() + '\u2026';
+}
+
+export async function getTikTokChannelId(): Promise<string> {
+  const data = await bufferRequest<{
+    channels: { id: string; service: string; name: string }[];
+  }>(`
+    query GetChannels {
+      channels(input: { organizationId: "${ORGANIZATION_ID}" }) {
+        id
+        service
+        name
+      }
+    }
+  `);
+
+  const channel = data.channels.find((c) => c.service === 'tiktok');
+  if (!channel) {
+    throw new Error('No TikTok channel connected in Buffer. Connect TikTok at buffer.com first.');
+  }
+  return channel.id;
+}
+
+export async function scheduleVideoToTikTok(
+  channelId: string,
+  tweetText: string,
+  videoUrl: string
+): Promise<{ id: string }> {
+  const data = await bufferRequest<{
+    createPost: { post?: { id: string }; message?: string };
+  }>(
+    `mutation CreatePost($input: CreatePostInput!) {
+      createPost(input: $input) {
+        ... on PostActionSuccess {
+          post { id }
+        }
+        ... on NotFoundError { message }
+        ... on UnauthorizedError { message }
+        ... on UnexpectedError { message }
+        ... on RestProxyError { message }
+        ... on LimitReachedError { message }
+        ... on InvalidInputError { message }
+      }
+    }`,
+    {
+      input: {
+        channelId,
+        schedulingType: 'automatic',
+        mode: 'addToQueue',
+        text: truncateCaption(tweetText),
+        assets: {
+          videos: [{ url: videoUrl }],
+        },
+      },
+    }
+  );
+
+  const result = data.createPost;
+  if ('message' in result && result.message) throw new Error(result.message);
+  if (!result.post) throw new Error('Unexpected response from Buffer API');
+  return result.post;
+}

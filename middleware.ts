@@ -7,7 +7,8 @@ export function middleware(req: NextRequest) {
   if (
     pathname === '/login' ||
     pathname === '/api/auth' ||
-    pathname.startsWith('/api/download/')
+    pathname.startsWith('/api/download/') ||
+    pathname === '/api/auto-pipeline'
   ) {
     return NextResponse.next();
   }

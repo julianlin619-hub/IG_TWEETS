@@ -9,9 +9,6 @@ import { Badge } from '@/components/ui/badge';
 interface Tweet {
   id: string;
   text: string;
-  likeCount: number;
-  createdAt: string;
-  url: string;
 }
 
 interface GeneratedFile {
@@ -35,53 +32,40 @@ interface BatchFolder {
 
 const DRIVE_ROOT_URL = 'https://drive.google.com/drive/folders/0AEw3aJ2mMki4Uk9PVA';
 
-export default function PipelinePage() {
+export default function BankPipelinePage() {
   const [tweets, setTweets] = useState<Tweet[]>([]);
+  const [remainingUnused, setRemainingUnused] = useState<number | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [generatedFiles, setGeneratedFiles] = useState<GeneratedFile[]>([]);
   const [uploadResults, setUploadResults] = useState<UploadResult[]>([]);
   const [batchFolder, setBatchFolder] = useState<BatchFolder | null>(null);
 
-  const [fetchLoading, setFetchLoading] = useState(false);
+  const [pickLoading, setPickLoading] = useState(false);
   const [generateLoading, setGenerateLoading] = useState(false);
   const [uploadLoading, setUploadLoading] = useState(false);
   const [bufferLoading, setBufferLoading] = useState(false);
   const [bufferScheduled, setBufferScheduled] = useState<{ videoFileName: string; postId: string }[] | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [resetConfirm, setResetConfirm] = useState(false);
-  const [resetLoading, setResetLoading] = useState(false);
-  const [resetSuccess, setResetSuccess] = useState(false);
 
-  async function handleReset() {
-    setResetLoading(true);
-    setResetSuccess(false);
-    try {
-      await fetch('/api/reset-history', { method: 'POST' });
-      setTweets([]);
-      setSelectedIds(new Set());
-      setError(null);
-      setResetConfirm(false);
-      setResetSuccess(true);
-      setTimeout(() => setResetSuccess(false), 3000);
-    } finally {
-      setResetLoading(false);
-    }
-  }
-
-  async function fetchTweets() {
-    setFetchLoading(true);
+  async function pickTweets() {
+    setPickLoading(true);
     setError(null);
+    setGeneratedFiles([]);
+    setUploadResults([]);
+    setBatchFolder(null);
+    setBufferScheduled(null);
     try {
-      const res = await fetch('/api/fetch-tweets', { method: 'POST' });
+      const res = await fetch('/api/pick-bank-tweets', { method: 'POST' });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to fetch tweets');
+      if (!res.ok) throw new Error(data.error || 'Failed to pick tweets');
       setTweets(data.tweets);
+      setRemainingUnused(data.remainingUnused);
       setSelectedIds(new Set(data.tweets.map((t: Tweet) => t.id)));
-      if (data.tweets.length === 0) setError('No new tweets \u2014 no tweets found in the last 24 hours, or all have already been seen. Reset history to re-fetch them.');
+      if (data.tweets.length === 0) setError('No unused tweets remaining in the bank.');
     } catch (e) {
       setError((e as Error).message);
     } finally {
-      setFetchLoading(false);
+      setPickLoading(false);
     }
   }
 
@@ -107,16 +91,17 @@ export default function PipelinePage() {
     setError(null);
     setBatchFolder(null);
     setUploadResults([]);
+    setBufferScheduled(null);
     try {
       const selectedTweets = tweets.filter((t) => selectedIds.has(t.id));
-      const genRes = await fetch('/api/generate', {
+      const res = await fetch('/api/generate', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ tweets: selectedTweets }),
       });
-      const genData = await genRes.json();
-      if (!genRes.ok) throw new Error(genData.error || 'Failed to generate images');
-      setGeneratedFiles(genData.files);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to generate');
+      setGeneratedFiles(data.files);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -128,15 +113,15 @@ export default function PipelinePage() {
     setUploadLoading(true);
     setError(null);
     try {
-      const upRes = await fetch('/api/upload-drive', {
+      const res = await fetch('/api/upload-drive', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ files: generatedFiles }),
       });
-      const upData = await upRes.json();
-      if (!upRes.ok) throw new Error(upData.error || 'Failed to upload to Drive');
-      setBatchFolder(upData.batchFolder);
-      setUploadResults(upData.uploadedFiles);
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || 'Failed to upload to Drive');
+      setBatchFolder(data.batchFolder);
+      setUploadResults(data.uploadedFiles);
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -178,10 +163,10 @@ export default function PipelinePage() {
           C
         </div>
         <h1 className="font-bold text-lg tracking-tight">CANVAS</h1>
-        <span className="text-muted-foreground text-sm">Tweet Pipeline</span>
+        <span className="text-muted-foreground text-sm">Tweet Bank Pipeline</span>
         <div className="ml-auto flex gap-4">
-          <Link href="/bank" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
-            Tweet Bank &rarr;
+          <Link href="/pipeline" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
+            &larr; Main Pipeline
           </Link>
           <Link href="/design" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
             Design Debugger &rarr;
@@ -197,52 +182,28 @@ export default function PipelinePage() {
             </div>
           )}
 
-          {/* Fetch Tweets */}
+          {/* Pick Tweets from Bank */}
           <Card>
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="flex items-center gap-2">
                   <Badge variant="primary">1</Badge>
-                  Fetch Tweets
+                  Pick from Tweet Bank
                 </CardTitle>
                 {tweets.length > 0 && (
-                  <Badge variant="success">{tweets.length} fetched</Badge>
+                  <Badge variant="success">{tweets.length} picked</Badge>
                 )}
               </div>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="flex items-center gap-3 flex-wrap">
-                <Button onClick={fetchTweets} disabled={fetchLoading || resetLoading}>
-                  {fetchLoading ? 'Fetching\u2026' : tweets.length > 0 ? 'Re-fetch from Apify' : 'Fetch from Apify'}
+                <Button onClick={pickTweets} disabled={pickLoading}>
+                  {pickLoading ? 'Picking\u2026' : tweets.length > 0 ? 'Pick 10 More' : 'Pick 10 Random Tweets'}
                 </Button>
-                {!resetConfirm ? (
-                  <button
-                    onClick={() => setResetConfirm(true)}
-                    disabled={fetchLoading || resetLoading}
-                    className="text-sm text-muted-foreground hover:text-destructive transition-colors disabled:opacity-50"
-                  >
-                    Reset History
-                  </button>
-                ) : (
-                  <span className="flex items-center gap-2 text-sm">
-                    <span className="text-muted-foreground">Clear seen tweet history and reset batch numbering?</span>
-                    <button
-                      onClick={handleReset}
-                      disabled={resetLoading}
-                      className="text-destructive hover:underline font-medium"
-                    >
-                      {resetLoading ? 'Resetting\u2026' : 'Confirm Reset'}
-                    </button>
-                    <button
-                      onClick={() => setResetConfirm(false)}
-                      className="text-muted-foreground hover:underline"
-                    >
-                      Cancel
-                    </button>
+                {remainingUnused !== null && (
+                  <span className="text-sm text-muted-foreground">
+                    {remainingUnused} unused tweets remaining in bank
                   </span>
-                )}
-                {resetSuccess && (
-                  <span className="text-sm text-green-500">History cleared. Next batch will be #1.</span>
                 )}
               </div>
 
@@ -270,13 +231,7 @@ export default function PipelinePage() {
                           onChange={() => toggleSelect(tweet.id)}
                           className="mt-0.5 accent-primary flex-shrink-0"
                         />
-                        <div className="flex-1 min-w-0 space-y-1">
-                          <p className="text-sm text-foreground whitespace-pre-wrap">{tweet.text}</p>
-                          <div className="flex gap-3 text-xs text-muted-foreground">
-                            <span>{tweet.likeCount.toLocaleString()} likes</span>
-                            <span>{new Date(tweet.createdAt).toLocaleDateString()}</span>
-                          </div>
-                        </div>
+                        <p className="text-sm text-foreground whitespace-pre-wrap flex-1 min-w-0">{tweet.text}</p>
                       </label>
                     ))}
                   </div>
@@ -360,27 +315,6 @@ export default function PipelinePage() {
                       </a>
                       <Button
                         variant="secondary"
-                        onClick={async () => {
-                          const imageFilenames = generatedFiles.map((f) => f.fileName);
-                          const videoFilenames = generatedFiles.map((f) => f.videoFileName);
-                          const res = await fetch('/api/download-zip', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ imageFilenames, videoFilenames }),
-                          });
-                          const blob = await res.blob();
-                          const url = URL.createObjectURL(blob);
-                          const a = document.createElement('a');
-                          a.href = url;
-                          a.download = 'tweet-exports.zip';
-                          a.click();
-                          URL.revokeObjectURL(url);
-                        }}
-                      >
-                        Download ZIP
-                      </Button>
-                      <Button
-                        variant="secondary"
                         onClick={() => {
                           setTweets([]);
                           setSelectedIds(new Set());
@@ -388,6 +322,7 @@ export default function PipelinePage() {
                           setUploadResults([]);
                           setBatchFolder(null);
                           setBufferScheduled(null);
+                          setRemainingUnused(null);
                           setError(null);
                         }}
                       >
@@ -400,14 +335,14 @@ export default function PipelinePage() {
             </Card>
           )}
 
-          {/* Upload to Buffer Instagram */}
+          {/* Schedule to Buffer */}
           {batchFolder && (
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <Badge variant="primary">4</Badge>
-                    Upload to Buffer Instagram
+                    Schedule to Buffer Instagram
                   </CardTitle>
                   {bufferScheduled && <Badge variant="success">{bufferScheduled.length} queued</Badge>}
                 </div>

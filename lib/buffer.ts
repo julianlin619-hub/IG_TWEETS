@@ -17,8 +17,7 @@ async function bufferRequest<T>(query: string, variables?: Record<string, unknow
 
   const json = await res.json();
   if (!res.ok) {
-    const detail = JSON.stringify(json);
-    throw new Error(`Buffer API error: ${res.status} ${res.statusText} — ${detail}`);
+    throw new Error(`Buffer API error: ${res.status} ${res.statusText} — ${JSON.stringify(json)}`);
   }
   if (json.errors?.length) throw new Error(json.errors[0].message);
   return json.data as T;
@@ -75,13 +74,13 @@ export async function scheduleVideoToInstagram(
     metadata: {
       instagram: {
         type: 'reel',
+        shouldShareToFeed: true,
       },
     },
     assets: {
       videos: [{ url: videoUrl }],
     },
   };
-  console.log('[Buffer] createPost input:', JSON.stringify(inputPayload, null, 2));
 
   const data = await bufferRequest<{
     createPost: { post?: { id: string }; message?: string };

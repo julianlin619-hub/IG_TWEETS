@@ -24,7 +24,13 @@ export async function makeFilePublic(fileId: string): Promise<string> {
     supportsAllDrives: true,
     requestBody: { role: 'reader', type: 'anyone' },
   });
-  return `https://drive.google.com/uc?export=download&id=${fileId}`;
+  // Fetch the official webContentLink (direct download URL for public files)
+  const file = await drive.files.get({
+    fileId,
+    fields: 'webContentLink',
+    supportsAllDrives: true,
+  });
+  return file.data.webContentLink ?? `https://drive.google.com/uc?export=download&confirm=t&id=${fileId}`;
 }
 
 export async function createFolder(name: string, parentFolderId: string): Promise<{ id: string; name: string }> {

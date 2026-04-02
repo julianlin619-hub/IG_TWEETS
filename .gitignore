@@ -4,4 +4,6 @@ node_modules/
 .next/
 exports/
 service-account.json
+ig-tweet-reels-*.json
 tsconfig.tsbuildinfo
+.DS_Store

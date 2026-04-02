@@ -30,7 +30,7 @@ export function renderPngToVideo(inputPath: string, outputPath: string): Promise
         .input(tempVideo)
         .input(silentRaw)
         .inputOptions(['-f s16le', '-ar 44100', '-ac 2'])
-        .outputOptions(['-c:v copy', '-c:a aac', '-b:a 128k', '-shortest'])
+        .outputOptions(['-c:v copy', '-c:a aac', '-b:a 128k', '-shortest', '-movflags', '+faststart'])
         .output(outputPath)
         .on('end', () => {
           fs.unlinkSync(tempVideo);

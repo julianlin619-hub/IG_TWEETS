@@ -51,11 +51,25 @@ export async function getInstagramChannelId(): Promise<string> {
 
 export async function introspectCreatePostInput(): Promise<unknown> {
   return bufferRequest(`{
-    __type(name: "CreatePostInput") {
+    postInput: __type(name: "CreatePostInput") {
       name
       inputFields {
         name
-        type { name kind ofType { name kind } }
+        type { name kind ofType { name kind ofType { name kind } } }
+      }
+    }
+    metadata: __type(name: "PostInputMetaData") {
+      name
+      inputFields {
+        name
+        type { name kind ofType { name kind ofType { name kind } } }
+      }
+    }
+    assets: __type(name: "AssetsInput") {
+      name
+      inputFields {
+        name
+        type { name kind ofType { name kind ofType { name kind } } }
       }
     }
   }`);
@@ -88,7 +102,6 @@ export async function scheduleVideoToInstagram(
         schedulingType: 'automatic',
         mode: 'addToQueue',
         text: truncateCaption(tweetText),
-        postType: 'reel',
         assets: {
           videos: [{ url: videoUrl }],
         },

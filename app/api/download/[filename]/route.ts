@@ -9,19 +9,26 @@ export async function GET(
   const filename = path.basename(params.filename);
   const ext = path.extname(filename).toLowerCase();
 
-  let subfolder: string;
   let contentType: string;
+  let searchDirs: string[];
   if (ext === '.mp4') {
-    subfolder = 'videos';
     contentType = 'video/mp4';
+    searchDirs = ['videos', 'bank-videos'];
   } else {
-    subfolder = 'images';
     contentType = 'image/png';
+    searchDirs = ['images', 'bank-images'];
   }
 
-  const filepath = path.join(process.cwd(), 'exports', subfolder, filename);
+  let filepath = '';
+  for (const dir of searchDirs) {
+    const candidate = path.join(process.cwd(), 'exports', dir, filename);
+    if (fs.existsSync(candidate)) {
+      filepath = candidate;
+      break;
+    }
+  }
 
-  if (!fs.existsSync(filepath)) {
+  if (!filepath) {
     return NextResponse.json({ error: 'File not found' }, { status: 404 });
   }
 
@@ -29,7 +36,8 @@ export async function GET(
   return new Response(file, {
     headers: {
       'Content-Type': contentType,
-      'Content-Disposition': `attachment; filename="${filename}"`,
+      'Content-Disposition': `inline; filename="${filename}"`,
+      'Content-Length': file.byteLength.toString(),
     },
   });
 }

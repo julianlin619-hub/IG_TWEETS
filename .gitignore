@@ -4,3 +4,4 @@ node_modules/
 .next/
 exports/
 service-account.json
+tsconfig.tsbuildinfo

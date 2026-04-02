@@ -76,7 +76,7 @@ export default function PipelinePage() {
       if (!res.ok) throw new Error(data.error || 'Failed to fetch tweets');
       setTweets(data.tweets);
       setSelectedIds(new Set(data.tweets.map((t: Tweet) => t.id)));
-      if (data.tweets.length === 0) setError('No new tweets \u2014 all recent 4k+ tweets have already been seen. Reset history to re-fetch them.');
+      if (data.tweets.length === 0) setError('No new tweets \u2014 no tweets found in the last 24 hours, or all have already been seen. Reset history to re-fetch them.');
     } catch (e) {
       setError((e as Error).message);
     } finally {
@@ -396,14 +396,14 @@ export default function PipelinePage() {
             </Card>
           )}
 
-          {/* Upload to Buffer TikTok */}
+          {/* Upload to Buffer Instagram */}
           {batchFolder && (
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <Badge variant="primary">4</Badge>
-                    Upload to Buffer TikTok
+                    Upload to Buffer Instagram
                   </CardTitle>
                   {bufferScheduled && <Badge variant="success">{bufferScheduled.length} queued</Badge>}
                 </div>
@@ -413,13 +413,13 @@ export default function PipelinePage() {
                   <Button onClick={scheduleToBuffer} disabled={bufferLoading}>
                     {bufferLoading
                       ? `Scheduling ${generatedFiles.length} video${generatedFiles.length !== 1 ? 's' : ''}\u2026`
-                      : `Schedule ${generatedFiles.length} video${generatedFiles.length !== 1 ? 's' : ''} to TikTok`}
+                      : `Schedule ${generatedFiles.length} video${generatedFiles.length !== 1 ? 's' : ''} to Instagram`}
                   </Button>
                 )}
                 {bufferScheduled && (
                   <div className="space-y-2">
                     <p className="text-sm text-muted-foreground">
-                      {bufferScheduled.length} video{bufferScheduled.length !== 1 ? 's' : ''} added to Buffer TikTok queue.
+                      {bufferScheduled.length} video{bufferScheduled.length !== 1 ? 's' : ''} added to Buffer Instagram queue.
                     </p>
                     <div className="space-y-1">
                       {bufferScheduled.map((s) => (

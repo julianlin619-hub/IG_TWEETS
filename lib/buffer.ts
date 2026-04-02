@@ -1,6 +1,6 @@
 const BUFFER_GRAPHQL_URL = 'https://api.buffer.com/graphql';
 const ORGANIZATION_ID = '67dafe21c453882020852a9a';
-const TIKTOK_CAPTION_LIMIT = 150;
+const INSTAGRAM_CAPTION_LIMIT = 2200;
 
 async function bufferRequest<T>(query: string, variables?: Record<string, unknown>): Promise<T> {
   const apiKey = process.env.BUFFER_API;
@@ -22,11 +22,11 @@ async function bufferRequest<T>(query: string, variables?: Record<string, unknow
 }
 
 function truncateCaption(text: string): string {
-  if (text.length <= TIKTOK_CAPTION_LIMIT) return text;
-  return text.slice(0, TIKTOK_CAPTION_LIMIT - 1).trimEnd() + '\u2026';
+  if (text.length <= INSTAGRAM_CAPTION_LIMIT) return text;
+  return text.slice(0, INSTAGRAM_CAPTION_LIMIT - 1).trimEnd() + '\u2026';
 }
 
-export async function getTikTokChannelId(): Promise<string> {
+export async function getInstagramChannelId(): Promise<string> {
   const data = await bufferRequest<{
     channels: { id: string; service: string; name: string }[];
   }>(`
@@ -39,14 +39,14 @@ export async function getTikTokChannelId(): Promise<string> {
     }
   `);
 
-  const channel = data.channels.find((c) => c.service === 'tiktok');
+  const channel = data.channels.find((c) => c.service === 'instagram');
   if (!channel) {
-    throw new Error('No TikTok channel connected in Buffer. Connect TikTok at buffer.com first.');
+    throw new Error('No Instagram channel connected in Buffer. Connect Instagram at buffer.com first.');
   }
   return channel.id;
 }
 
-export async function scheduleVideoToTikTok(
+export async function scheduleVideoToInstagram(
   channelId: string,
   tweetText: string,
   videoUrl: string

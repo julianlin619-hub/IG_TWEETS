@@ -50,8 +50,8 @@ export async function getInstagramChannelId(): Promise<string> {
 }
 
 export async function introspectSchema(): Promise<unknown> {
-  const metadata = await bufferRequest(`{
-    __type(name: "PostInputMetaData") {
+  const igMeta = await bufferRequest(`{
+    __type(name: "InstagramPostMetadataInput") {
       name
       inputFields {
         name
@@ -59,16 +59,7 @@ export async function introspectSchema(): Promise<unknown> {
       }
     }
   }`);
-  const assets = await bufferRequest(`{
-    __type(name: "AssetsInput") {
-      name
-      inputFields {
-        name
-        type { name kind ofType { name kind ofType { name kind } } }
-      }
-    }
-  }`);
-  return { metadata, assets };
+  return { igMeta };
 }
 
 export async function scheduleVideoToInstagram(
@@ -98,6 +89,11 @@ export async function scheduleVideoToInstagram(
         schedulingType: 'automatic',
         mode: 'addToQueue',
         text: truncateCaption(tweetText),
+        metadata: {
+          instagram: {
+            type: 'reel',
+          },
+        },
         assets: {
           videos: [{ url: videoUrl }],
         },

@@ -128,6 +128,16 @@ jobs:
           echo "$RESPONSE" > /tmp/drive_response.json
           echo "Upload complete."
 
+      - name: Debug — Introspect Buffer CreatePostInput schema
+        if: steps.fetch.outputs.tweet_count != '0'
+        run: |
+          RESPONSE=$(curl -s --max-time 30 -X POST http://localhost:3000/api/schedule-buffer \
+            -H "Content-Type: application/json" \
+            -H "Cookie: auth=${{ secrets.APP_PASSWORD }}" \
+            -d '{"introspect": true}')
+          echo "CreatePostInput schema:"
+          echo "$RESPONSE" | jq '.'
+
       - name: Step 4 — Schedule to Instagram via Buffer
         if: steps.fetch.outputs.tweet_count != '0'
         run: |

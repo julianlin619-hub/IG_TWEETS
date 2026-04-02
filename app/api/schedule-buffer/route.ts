@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getInstagramChannelId, scheduleVideoToInstagram } from '@/lib/buffer';
+import { getInstagramChannelId, scheduleVideoToInstagram, introspectCreatePostInput } from '@/lib/buffer';
 
 export async function POST(req: NextRequest) {
   try {
-    const { files } = await req.json() as {
+    const body = await req.json();
+
+    // Introspection mode: discover CreatePostInput schema
+    if (body.introspect) {
+      const schema = await introspectCreatePostInput();
+      return NextResponse.json({ schema });
+    }
+
+    const { files } = body as {
       files: { videoFileName?: string; videoUrl?: string; tweetText: string }[];
     };
     const appUrl = process.env.APP_URL;

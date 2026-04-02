@@ -49,6 +49,18 @@ export async function getInstagramChannelId(): Promise<string> {
   return channel.id;
 }
 
+export async function introspectCreatePostInput(): Promise<unknown> {
+  return bufferRequest(`{
+    __type(name: "CreatePostInput") {
+      name
+      inputFields {
+        name
+        type { name kind ofType { name kind } }
+      }
+    }
+  }`);
+}
+
 export async function scheduleVideoToInstagram(
   channelId: string,
   tweetText: string,

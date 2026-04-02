@@ -90,7 +90,7 @@ jobs:
 
       - name: No new tweets — skipping remaining steps
         if: steps.fetch.outputs.tweet_count == '0'
-        run: echo "No new tweets found — all recent 4k+ tweets have already been processed."
+        run: echo "No new tweets found in the last 24 hours, or all have already been processed."
 
       - name: Step 2 — Generate PNG + MP4 files
         id: generate
@@ -128,7 +128,7 @@ jobs:
           echo "$RESPONSE" > /tmp/drive_response.json
           echo "Upload complete."
 
-      - name: Step 4 — Schedule to TikTok via Buffer
+      - name: Step 4 — Schedule to Instagram via Buffer
         if: steps.fetch.outputs.tweet_count != '0'
         run: |
           # Join tweets + files + drive URLs to build schedule-buffer input
@@ -158,7 +158,7 @@ jobs:
             exit 1
           fi
 
-          echo "Scheduled $(echo "$RESPONSE" | jq '.scheduled | length') posts to TikTok via Buffer."
+          echo "Scheduled $(echo "$RESPONSE" | jq '.scheduled | length') posts to Instagram via Buffer."
 
       - name: Persist tweet history
         if: steps.fetch.outputs.tweet_count != '0'

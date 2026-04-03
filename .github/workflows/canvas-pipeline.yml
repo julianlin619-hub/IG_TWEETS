@@ -1,16 +1,18 @@
-name: CANVAS Tweet Pipeline
+name: CANVAS Daily Pipeline
 
 on:
   schedule:
-    # Runs daily at 6:00 AM Las Vegas time (Pacific, UTC-7 / UTC-8 in winter)
-    - cron: '0 13 * * *'
+    # Runs daily at 4:00 AM Las Vegas time (Pacific, UTC-7 PDT / UTC-8 PST)
+    # Using UTC-7 (PDT): 4 AM PT = 11:00 UTC
+    - cron: '0 11 * * *'
   workflow_dispatch: # Allow manual runs from GitHub UI
 
 env:
   FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
 
 jobs:
-  run-pipeline:
+  # Job 1: Pipeline pathway — fetch recent tweets from Apify
+  recent-tweets:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     permissions:
@@ -26,7 +28,7 @@ jobs:
           node-version: '20'
           cache: 'npm'
 
-      - name: Install system dependencies (canvas)
+      - name: Install system dependencies (canvas + ffmpeg)
         run: |
           sudo apt-get update -qq
           sudo apt-get install -y -qq \
@@ -35,7 +37,8 @@ jobs:
             libpango1.0-dev \
             libjpeg-dev \
             libgif-dev \
-            librsvg2-dev
+            librsvg2-dev \
+            ffmpeg
 
       - name: Install dependencies
         run: npm ci
@@ -49,7 +52,7 @@ jobs:
             echo "APIFY_API_KEY=${{ secrets.APIFY_API_KEY }}"
             echo "GOOGLE_DRIVE_FOLDER_ID=${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}"
             echo "GOOGLE_SERVICE_ACCOUNT_KEY_FILE=service-account.json"
-            echo "BUFFER_API=${{ secrets.BUFFER_API }}"
+            echo "ZERNIO_API_KEY=${{ secrets.ZERNIO_API_KEY }}"
             echo "APP_PASSWORD=${{ secrets.APP_PASSWORD }}"
           } > .env.local
 
@@ -110,7 +113,7 @@ jobs:
           echo "$RESPONSE" | jq '.files' > /tmp/files.json
           echo "Generate complete — $(echo "$RESPONSE" | jq '.files | length') files"
 
-      - name: Step 3 — Upload to Google Drive (with public video URLs)
+      - name: Step 3 — Upload to Google Drive
         id: upload
         if: steps.fetch.outputs.tweet_count != '0'
         run: |
@@ -125,50 +128,37 @@ jobs:
             exit 1
           fi
 
-          echo "$RESPONSE" > /tmp/drive_response.json
           echo "Upload complete."
 
-      - name: Debug — Introspect Buffer CreatePostInput schema
+      - name: Step 4 — Schedule to Instagram via Zernio
         if: steps.fetch.outputs.tweet_count != '0'
         run: |
-          RESPONSE=$(curl -s --max-time 30 -X POST http://localhost:3000/api/schedule-buffer \
-            -H "Content-Type: application/json" \
-            -H "Cookie: auth=${{ secrets.APP_PASSWORD }}" \
-            -d '{"introspect": true}')
-          echo "CreatePostInput schema:"
-          echo "$RESPONSE" | jq '.'
-
-      - name: Step 4 — Schedule to Instagram via Buffer
-        if: steps.fetch.outputs.tweet_count != '0'
-        run: |
-          # Join tweets + files + drive URLs to build schedule-buffer input
+          # Build schedule input from tweets + generated files
           SCHEDULE_INPUT=$(jq -n \
             --slurpfile tweets /tmp/tweets.json \
             --slurpfile files /tmp/files.json \
-            --slurpfile drive /tmp/drive_response.json \
             '
-            ($drive[0].uploadedFiles | map(select(.driveUrl != null)) | map({(.fileName): .driveUrl}) | add) as $urlMap |
             ($tweets[0] | map({(.id): .text}) | add) as $textMap |
             {files: ($files[0] | map({
-              videoUrl: $urlMap[.videoFileName],
+              videoFileName: .videoFileName,
               tweetText: $textMap[.id]
-            }) | map(select(.videoUrl != null)))}
+            }))}
             ')
 
           echo "Scheduling $(echo "$SCHEDULE_INPUT" | jq '.files | length') videos..."
 
-          RESPONSE=$(curl -s --max-time 60 -X POST http://localhost:3000/api/schedule-buffer \
+          RESPONSE=$(curl -s --max-time 120 -X POST http://localhost:3000/api/schedule-post \
             -H "Content-Type: application/json" \
             -H "Cookie: auth=${{ secrets.APP_PASSWORD }}" \
             -d "$SCHEDULE_INPUT")
           echo "Response: $RESPONSE"
 
           if echo "$RESPONSE" | jq -e '.error' > /dev/null 2>&1; then
-            echo "schedule-buffer failed: $RESPONSE"
+            echo "schedule-post failed: $RESPONSE"
             exit 1
           fi
 
-          echo "Scheduled $(echo "$RESPONSE" | jq '.scheduled | length') posts to Instagram via Buffer."
+          echo "Scheduled $(echo "$RESPONSE" | jq '.scheduled | length') posts to Instagram via Zernio."
 
       - name: Persist tweet history
         if: steps.fetch.outputs.tweet_count != '0'
@@ -177,6 +167,95 @@ jobs:
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add data/tweet-history.json
           git diff --staged --quiet || git commit -m "chore: update tweet history [skip ci]"
+          git push
+
+      - name: Clean up secrets from disk
+        if: always()
+        run: rm -f .env.local service-account.json
+
+  # Job 2: Bank pathway — pull 10 tweets from the bank
+  bank-tweets:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: write
+
+    steps:
+      - name: Checkout repo
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install system dependencies (canvas + ffmpeg)
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq \
+            build-essential \
+            libcairo2-dev \
+            libpango1.0-dev \
+            libjpeg-dev \
+            libgif-dev \
+            librsvg2-dev \
+            ffmpeg
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Write service-account.json from secret
+        run: echo '${{ secrets.SERVICE_ACCOUNT_JSON }}' > service-account.json
+
+      - name: Write .env.local from secrets
+        run: |
+          {
+            echo "GOOGLE_DRIVE_FOLDER_ID=${{ secrets.GOOGLE_DRIVE_FOLDER_ID }}"
+            echo "GOOGLE_SERVICE_ACCOUNT_KEY_FILE=service-account.json"
+            echo "ZERNIO_API_KEY=${{ secrets.ZERNIO_API_KEY }}"
+            echo "CRON_SECRET=${{ secrets.CRON_SECRET }}"
+            echo "APP_PASSWORD=${{ secrets.APP_PASSWORD }}"
+          } > .env.local
+
+      - name: Build Next.js app
+        run: npm run build
+
+      - name: Start server
+        run: |
+          npm run start &
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:3000 > /dev/null 2>&1; then
+              echo "Server ready after ${i}s"
+              break
+            fi
+            echo "Waiting for server... ($i)"
+            sleep 2
+          done
+
+      - name: Run bank auto-pipeline (pick 10, generate, upload, schedule)
+        run: |
+          echo "Running bank auto-pipeline..."
+          RESPONSE=$(curl -s --max-time 600 -X POST http://localhost:3000/api/auto-pipeline \
+            -H "Content-Type: application/json" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}")
+          echo "Response: $RESPONSE"
+
+          if echo "$RESPONSE" | jq -e '.error' > /dev/null 2>&1; then
+            echo "auto-pipeline failed: $RESPONSE"
+            exit 1
+          fi
+
+          PROCESSED=$(echo "$RESPONSE" | jq '.processed // 0')
+          REMAINING=$(echo "$RESPONSE" | jq '.remainingUnused // 0')
+          echo "Processed $PROCESSED bank tweets. $REMAINING unused tweets remaining."
+
+      - name: Persist bank usage data
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add data/
+          git diff --staged --quiet || git commit -m "chore: update bank usage data [skip ci]"
           git push
 
       - name: Clean up secrets from disk

@@ -43,8 +43,8 @@ export default function BankPipelinePage() {
   const [pickLoading, setPickLoading] = useState(false);
   const [generateLoading, setGenerateLoading] = useState(false);
   const [uploadLoading, setUploadLoading] = useState(false);
-  const [bufferLoading, setBufferLoading] = useState(false);
-  const [bufferScheduled, setBufferScheduled] = useState<{ videoFileName: string; postId: string }[] | null>(null);
+  const [scheduleLoading, setScheduleLoading] = useState(false);
+  const [scheduled, setScheduled] = useState<{ videoFileName: string; postId: string }[] | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function pickTweets() {
@@ -53,7 +53,7 @@ export default function BankPipelinePage() {
     setGeneratedFiles([]);
     setUploadResults([]);
     setBatchFolder(null);
-    setBufferScheduled(null);
+    setScheduled(null);
     try {
       const res = await fetch('/api/pick-bank-tweets', { method: 'POST' });
       const data = await res.json();
@@ -91,7 +91,7 @@ export default function BankPipelinePage() {
     setError(null);
     setBatchFolder(null);
     setUploadResults([]);
-    setBufferScheduled(null);
+    setScheduled(null);
     try {
       const selectedTweets = tweets.filter((t) => selectedIds.has(t.id));
       const res = await fetch('/api/generate', {
@@ -129,8 +129,8 @@ export default function BankPipelinePage() {
     }
   }
 
-  async function scheduleToBuffer() {
-    setBufferLoading(true);
+  async function scheduleToInstagram() {
+    setScheduleLoading(true);
     setError(null);
     try {
       const tweetMap = new Map(tweets.map((t) => [t.id, t.text]));
@@ -138,23 +138,23 @@ export default function BankPipelinePage() {
         videoFileName: f.videoFileName,
         tweetText: tweetMap.get(f.id) ?? '',
       }));
-      const res = await fetch('/api/schedule-buffer', {
+      const res = await fetch('/api/schedule-post', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ files }),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error || 'Failed to schedule to Buffer');
-      setBufferScheduled(data.scheduled);
+      if (!res.ok) throw new Error(data.error || 'Failed to schedule to Instagram');
+      setScheduled(data.scheduled);
     } catch (e) {
       setError((e as Error).message);
     } finally {
-      setBufferLoading(false);
+      setScheduleLoading(false);
     }
   }
 
   const selectedCount = selectedIds.size;
-  const isRunning = generateLoading || uploadLoading || bufferLoading;
+  const isRunning = generateLoading || uploadLoading || scheduleLoading;
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -321,7 +321,7 @@ export default function BankPipelinePage() {
                           setGeneratedFiles([]);
                           setUploadResults([]);
                           setBatchFolder(null);
-                          setBufferScheduled(null);
+                          setScheduled(null);
                           setRemainingUnused(null);
                           setError(null);
                         }}
@@ -335,33 +335,33 @@ export default function BankPipelinePage() {
             </Card>
           )}
 
-          {/* Schedule to Buffer */}
+          {/* Schedule to Instagram */}
           {batchFolder && (
             <Card>
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2">
                     <Badge variant="primary">4</Badge>
-                    Schedule to Buffer Instagram
+                    Schedule to Instagram
                   </CardTitle>
-                  {bufferScheduled && <Badge variant="success">{bufferScheduled.length} queued</Badge>}
+                  {scheduled && <Badge variant="success">{scheduled.length} scheduled</Badge>}
                 </div>
               </CardHeader>
               <CardContent className="space-y-4">
-                {!bufferScheduled && (
-                  <Button onClick={scheduleToBuffer} disabled={bufferLoading}>
-                    {bufferLoading
+                {!scheduled && (
+                  <Button onClick={scheduleToInstagram} disabled={scheduleLoading}>
+                    {scheduleLoading
                       ? `Scheduling ${generatedFiles.length} video${generatedFiles.length !== 1 ? 's' : ''}\u2026`
                       : `Schedule ${generatedFiles.length} video${generatedFiles.length !== 1 ? 's' : ''} to Instagram`}
                   </Button>
                 )}
-                {bufferScheduled && (
+                {scheduled && (
                   <div className="space-y-2">
                     <p className="text-sm text-muted-foreground">
-                      {bufferScheduled.length} video{bufferScheduled.length !== 1 ? 's' : ''} added to Buffer Instagram queue.
+                      {scheduled.length} video{scheduled.length !== 1 ? 's' : ''} scheduled to Instagram.
                     </p>
                     <div className="space-y-1">
-                      {bufferScheduled.map((s) => (
+                      {scheduled.map((s) => (
                         <div key={s.postId} className="flex items-center gap-3 text-sm">
                           <span className="text-muted-foreground truncate flex-1">{s.videoFileName}</span>
                           <span className="text-xs text-muted-foreground font-mono">{s.postId}</span>

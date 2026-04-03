@@ -3,7 +3,7 @@ import { NextRequest, NextResponse } from 'next/server';
 export function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
 
-  // Allow login, auth API, and video downloads (Buffer fetches these without a cookie)
+  // Allow login, auth API, and video downloads (Zernio fetches these without a cookie)
   if (
     pathname === '/login' ||
     pathname === '/api/auth' ||

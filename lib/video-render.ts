@@ -18,7 +18,7 @@ export function renderPngToVideo(inputPath: string, outputPath: string): Promise
     ffmpeg()
       .input(inputPath)
       .inputOptions(['-loop 1'])
-      .outputOptions(['-t 5', '-vf', 'scale=720:1280', '-c:v libx264', '-pix_fmt yuv420p', '-r 24'])
+      .outputOptions(['-t 5', '-vf', 'scale=1080:1920', '-c:v libx264', '-pix_fmt yuv420p', '-r 24'])
       .output(tempVideo)
       .on('end', () => resolve())
       .on('error', reject)

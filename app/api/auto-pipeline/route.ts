@@ -5,8 +5,8 @@ import { pickRandomUnused, markUsed, getNextBankBatchNumber } from '@/lib/tweet-
 import { normalizeTweetText } from '@/lib/tweet-normalize';
 import { renderTweetToBuffer } from '@/lib/canvas-render';
 import { renderPngToVideo } from '@/lib/video-render';
-import { createFolder, uploadToDrive, makeFilePublic } from '@/lib/google-drive';
-import { getInstagramChannelId, scheduleVideoToInstagram } from '@/lib/buffer';
+import { createFolder, uploadToDrive } from '@/lib/google-drive';
+import { getInstagramAccount, scheduleVideoToInstagram } from '@/lib/zernio';
 
 const BATCH_SIZE = 10;
 
@@ -48,18 +48,14 @@ export async function POST(req: NextRequest) {
 
   for (const g of generated) {
     await uploadToDrive(g.pngPath, `tweet-${g.hash}.png`, batchFolder.id);
-    const videoFileId = await uploadToDrive(g.mp4Path, `tweet-${g.hash}.mp4`, videosFolder.id);
-    await makeFilePublic(videoFileId);
+    await uploadToDrive(g.mp4Path, `tweet-${g.hash}.mp4`, videosFolder.id);
   }
 
-  // 4. Schedule on Buffer (serve videos from app, not Drive URLs)
-  const appUrl = process.env.APP_URL;
-  if (!appUrl) throw new Error('APP_URL env var not set');
-  const channelId = await getInstagramChannelId();
+  // 4. Schedule on Zernio (upload videos directly from local disk)
+  const { accountId, profileId } = await getInstagramAccount();
   const scheduled: { hash: string; postId: string }[] = [];
   for (const g of generated) {
-    const videoUrl = `${appUrl}/api/download/tweet-${g.hash}.mp4`;
-    const post = await scheduleVideoToInstagram(channelId, g.text, videoUrl);
+    const post = await scheduleVideoToInstagram(accountId, profileId, g.text, g.mp4Path);
     scheduled.push({ hash: g.hash, postId: post.id });
   }
 

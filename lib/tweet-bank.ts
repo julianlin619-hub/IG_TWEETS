@@ -4,6 +4,16 @@ import crypto from 'crypto';
 import { parse } from 'csv-parse/sync';
 
 const BANK_FILE = path.join(process.cwd(), 'data', 'tweet_bank_1.csv');
+
+function decodeHtml(str: string): string {
+  return str
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&apos;/g, "'");
+}
 const HISTORY_FILE = path.join(process.cwd(), 'data', 'tweet-bank-history.json');
 
 interface BankHistory {
@@ -31,7 +41,7 @@ export function parseBankFile(): BankTweet[] {
   return rows
     .map((row) => row[0]?.trim())
     .filter((text): text is string => Boolean(text))
-    .map((text) => ({ hash: hashTweet(text), text }));
+    .map((text) => ({ hash: hashTweet(text), text: decodeHtml(text) }));
 }
 
 function getBankHistory(): BankHistory {
